@@ -2,7 +2,7 @@ name: libretro core
 
 on:
   push:
-    branches: [libretro]
+    branches: [libretro, enhanced-v0.1-test]
   workflow_dispatch:
 
 jobs:
@@ -83,5 +83,5 @@ jobs:
           objdump -p build/odin_libretro.dll | grep -c " retro_" || true
       - uses: actions/upload-artifact@v4
         with:
-          name: odin_libretro-windows-x86_64
+          name: odin_enhanced-windows-x86_64
           path: build/odin_libretro.dll
