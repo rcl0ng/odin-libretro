@@ -348,7 +348,18 @@ private:
  */
 /* The device of each port (retro_set_controller_port_device): RetroPad or
  * Light Gun */
+/* Optional analog-gun subclass, as used in the Chihiro Libretro project.
+ * Odin's gun channels already map left-stick position absolutely; this
+ * device exposes that input choice explicitly and selects gun buttons. */
+#ifndef RETRO_DEVICE_ANALOG_GUN
+#define RETRO_DEVICE_ANALOG_GUN RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0)
+#endif
 unsigned port_device[2] = { RETRO_DEVICE_JOYPAD, RETRO_DEVICE_JOYPAD };
+
+bool analog_gun(unsigned port)
+{
+	return port < 2 && port_device[port] == RETRO_DEVICE_ANALOG_GUN;
+}
 
 bool
 light_gun(unsigned port)
@@ -515,10 +526,24 @@ public:
 			const unsigned player = control.player & 1;
 
 			switch (control.type) {
-			case GameControl::Type::BUTTON:
-				if (has_pad(control) ? pad_pressed(control, player) : switch_on(control.role, player))
+			case GameControl::Type::BUTTON: {
+				/* Chihiro-style logical RetroPad gun buttons for Lichtknarre/vJoy.
+				 * Only affect Brave Firefighters in Left Stick as Gun mode.
+				 * Physical vJoy button-to-RetroPad mapping remains user-configured. */
+				bool pressed;
+				if (analog_gun(player) &&
+				    (control.id == "1p_water" || control.id == "2p_water"))
+					pressed = pad(player, RETRO_DEVICE_ID_JOYPAD_B);
+				else if (analog_gun(player) &&
+				         (control.id == "1p_fog" || control.id == "2p_fog"))
+					pressed = pad(player, RETRO_DEVICE_ID_JOYPAD_A);
+				else
+					pressed = has_pad(control) ? pad_pressed(control, player) :
+					          switch_on(control.role, player);
+				if (pressed)
 					inputs.jvs_player[control.button.player & 1] |= control.button.mask;
 				break;
+			}
 			case GameControl::Type::POSITIONS: {
 				const bool down = pad(player, RETRO_DEVICE_ID_JOYPAD_L);
 				const bool up = pad(player, RETRO_DEVICE_ID_JOYPAD_R);
@@ -1811,14 +1836,15 @@ retro_set_environment(retro_environment_t cb)
 	libretro_set_core_options(cb, &categories_supported);
 	show_sound_options(nullptr);
 
-	/* RetroPad, or Light Gun for a sight on the light gun */
+	/* Preserve stock input types; expose Chihiro-style absolute aim mode. */
 	static const retro_controller_description DEVICES[] = {
 		{ "RetroPad", RETRO_DEVICE_JOYPAD },
 		{ "Light Gun", RETRO_DEVICE_LIGHTGUN },
+		{ "Left Stick as Gun", RETRO_DEVICE_ANALOG_GUN },
 	};
 	static const retro_controller_info PORTS[] = {
-		{ DEVICES, 2 },
-		{ DEVICES, 2 },
+		{ DEVICES, 3 },
+		{ DEVICES, 3 },
 		{ nullptr, 0 },
 	};
 	cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, const_cast<retro_controller_info *>(PORTS));
